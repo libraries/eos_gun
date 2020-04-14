@@ -1,0 +1,85 @@
+package main
+
+import (
+	"log"
+	"time"
+
+	eos "github.com/eoscanada/eos-go"
+	"github.com/eoscanada/eos-go/ecc"
+	"github.com/eoscanada/eos-go/token"
+)
+
+const (
+	cAPI          = "http://3.0.115.46:28888"
+	cTokenAccount = "eosio.token"
+	cFrom         = "eosio"
+	cFromPrivKey  = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+	cTo           = "alice"
+	cSymbol       = "EOS"
+	cQuantity     = "0.0001 EOS"
+	cExpiration   = time.Hour
+)
+
+func main() {
+	api := eos.New(cAPI)
+
+	// Set signer
+	keyBag := &eos.KeyBag{}
+	err := keyBag.ImportPrivateKey(cFromPrivKey)
+	if err != nil {
+		log.Panicln(err)
+	}
+	api.SetSigner(keyBag)
+	// Set custom get required keys
+	privKey, err := ecc.NewPrivateKey(cFromPrivKey)
+	if nil != err {
+		log.Panicln("config privkey err")
+	}
+	api.SetCustomGetRequiredKeys(func(tx *eos.Transaction) (keys []ecc.PublicKey, e error) {
+		return []ecc.PublicKey{privKey.PublicKey()}, nil
+	})
+
+	from := eos.AccountName(cFrom)
+	to := eos.AccountName(cTo)
+	quantity, err := eos.NewEOSAssetFromString(cQuantity)
+	if err != nil {
+		log.Panicln(err)
+	}
+	memo := ""
+
+	log.Println(api.GetCurrencyBalance(cTo, cSymbol, cTokenAccount))
+
+	for i := 0; i < 1; i++ {
+		txOpts := &eos.TxOptions{}
+		if err := txOpts.FillFromChain(api); err != nil {
+			log.Panicln(err)
+		}
+		tx := eos.NewTransaction([]*eos.Action{token.NewTransfer(from, to, quantity, memo)}, txOpts)
+		tx.SetExpiration(cExpiration)
+
+		_, packedTx, err := api.SignTransaction(tx, txOpts.ChainID, eos.CompressionNone)
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		r, err := api.PushTransaction(packedTx)
+		if err != nil {
+			log.Panicln(err)
+		}
+		log.Println(r.Processed.ID)
+	}
+
+	// content, err := json.MarshalIndent(signedTx, "", "  ")
+	// if err != nil {
+	// 	log.Panicln(err)
+	// }
+	// fmt.Println("Transaction:", string(content))
+	// fmt.Println()
+
+	// response, err := api.PushTransaction(packedTx)
+	// if err != nil {
+	// 	log.Panicln(err)
+	// }
+
+	// fmt.Printf("Transaction [%s] submitted to the network succesfully.\n", hex.EncodeToString(response.Processed.ID))
+}
