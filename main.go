@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"flag"
 	"log"
 	"math/rand"
 	"time"
@@ -12,8 +13,12 @@ import (
 	"github.com/eoscanada/eos-go/token"
 )
 
+var (
+	flAPI       = flag.String("api", "http://3.0.115.46:28888", "API address")
+	flGoroutine = flag.Int("goroutine", 8, "Number of goroutines")
+)
+
 const (
-	cAPI          = "http://3.0.115.46:28888"
 	cTokenAccount = "eosio.token"
 	cFrom         = "eosio"
 	cFromPrivKey  = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
@@ -68,7 +73,7 @@ func (e *eosgun) send() {
 func jakobu() *eosgun {
 	r := &eosgun{}
 	a := func() *eos.API {
-		a := eos.New(cAPI)
+		a := eos.New(*flAPI)
 		p, err := ecc.NewPrivateKey(cFromPrivKey)
 		if err != nil {
 			log.Panicln(err)
@@ -89,21 +94,21 @@ func jakobu() *eosgun {
 }
 
 func main() {
+	flag.Parse()
 	gun := jakobu()
+
+	for i := 0; i < *flGoroutine; i++ {
+		go gun.create()
+	}
+	for i := 0; i < *flGoroutine; i++ {
+		go gun.send()
+	}
 
 	tic, err := gun.api.GetCurrencyBalance(cTo, cSymbol, cTokenAccount)
 	if err != nil {
 		log.Panicln(err)
 	}
-
-	for i := 0; i < 2; i++ {
-		go gun.create()
-	}
-	for i := 0; i < 2; i++ {
-		go gun.send()
-	}
-	time.Sleep(time.Second * 10)
-
+	time.Sleep(time.Minute)
 	toc, err := gun.api.GetCurrencyBalance(cTo, cSymbol, cTokenAccount)
 	if err != nil {
 		log.Panicln(err)
