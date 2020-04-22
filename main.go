@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	flAPI       = flag.String("api", "http://3.0.115.46:28888", "API address")
+	flAPI       = flag.String("api", "http://127.0.0.1:8888", "API address")
 	flGoroutine = flag.Int("goroutine", 8, "Number of goroutines")
 )
 
